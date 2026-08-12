@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deadline Board</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@500;600&family=Inter:wght@400;500;600&display=swap');
+
+:root{
+  --bg:#14151A;
+  --surface:#1C1E26;
+  --surface-2:#22242E;
+  --border:#2C2F3A;
+  --text:#EDEDF0;
+  --text-dim:#8A8D99;
+  --text-faint:#5B5E6B;
+  --urgent:#FF5A4E;
+  --soon:#F5A623;
+  --upcoming:#4FA8E0;
+  --safe:#5FCB8C;
+  --overdue:#6B6E7B;
+  --ring:var(--upcoming);
+  --shadow:0 6px 22px rgba(0,0,0,.35);
+}
+
+*{box-sizing:border-box; margin:0; padding:0;}
+button, select, summary, a{cursor:pointer;}
+:focus-visible{outline:2px solid var(--ring); outline-offset:2px; border-radius:4px;}
+
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Inter', sans-serif;
+  min-height:100vh;
+  padding:28px 20px 80px;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:820px; margin:0 auto;}
+
+/* ---- Header ---- */
+.board-header{
+  display:flex; justify-content:space-between; align-items:flex-end;
+  border-bottom:1px solid var(--border);
+  padding-bottom:14px; margin-bottom:22px;
+}
+.board-title{
+  font-family:'Space Grotesk', sans-serif;
+  font-weight:700;
+  font-size:22px;
+  letter-spacing:0.5px;
+}
+.board-title span{color:var(--soon);}
+.board-sub{color:var(--text-dim); font-size:12px; margin-top:4px; letter-spacing:0.4px;}
+.clock{
+  font-family:'IBM Plex Mono', monospace;
+  font-size:12px; color:var(--text-faint);
+  text-align:right;
+}
+
+/* ---- Hero next-deadline strip ---- */
+.hero{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-left:4px solid var(--soon);
+  border-radius:8px;
+  padding:18px 20px;
+  margin-bottom:24px;
+  display:flex; justify-content:space-between; align-items:center;
+  gap:16px;
+  box-shadow:var(--shadow);
+}
+.hero.empty{border-left-color:var(--border); color:var(--text-dim); font-size:14px; box-shadow:none;}
+.hero-left .eyebrow{
+  font-family:'IBM Plex Mono', monospace;
+  font-size:10px; letter-spacing:2px; color:var(--text-faint);
+  text-transform:uppercase; margin-bottom:6px;
+}
+.hero-left .name{font-family:'Space Grotesk', sans-serif; font-size:19px; font-weight:700;}
+.hero-left .meta{font-size:12px; color:var(--text-dim); margin-top:4px;}
+.hero-right{text-align:right;}
+.hero-right .count{
+  font-family:'IBM Plex Mono', monospace;
+  font-size:34px; font-weight:600; line-height:1;
+}
+.hero-right .unit{font-size:11px; color:var(--text-dim); letter-spacing:1px; margin-top:2px; text-transform:uppercase;}
+
+/* ---- Toolbar ---- */
+.toolbar{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; gap:10px; flex-wrap:wrap;}
+.view-toggle{display:flex; background:var(--surface-2); border:1px solid var(--border); border-radius:9px; padding:3px; gap:2px;}
+.view-btn{
+  display:inline-flex; align-items:center; gap:6px;
+  background:transparent; border:none; color:var(--text-dim);
+  font-family:'Inter'; font-size:12px; font-weight:500; padding:7px 13px; border-radius:7px;
+  transition:all .15s;
+}
+.view-btn:hover{color:var(--text);}
+.view-btn.active{background:var(--surface); color:var(--text); box-shadow:0 0 0 1px #3a3d4a inset;}
+.filters{display:flex; gap:6px; flex-wrap:wrap;}
+.filter-btn{
+  background:transparent; border:1px solid var(--border); color:var(--text-dim);
+  font-family:'Inter'; font-size:11.5px; padding:6px 11px; border-radius:20px;
+  transition:all .15s;
+}
+.filter-btn.active{background:var(--surface-2); color:var(--text); border-color:#3a3d4a;}
+.toolbar-actions{display:flex; gap:8px; align-items:center; flex-wrap:wrap;}
+.cat-filter{
+  background:var(--surface-2); border:1px solid var(--border); color:var(--text-dim);
+  font-family:'Inter'; font-size:11.5px; padding:6px 10px; border-radius:20px;
+}
+.btn-ghost{
+  display:inline-flex; align-items:center; gap:6px;
+  background:transparent; border:1px solid var(--border); color:var(--text-dim);
+  font-family:'Inter'; font-size:12px; padding:8px 12px; border-radius:6px;
+  white-space:nowrap; transition:all .15s;
+}
+.btn-ghost:hover{color:var(--text); border-color:#3a3d4a;}
+.add-btn{
+  display:inline-flex; align-items:center; gap:6px;
+  background:var(--soon); color:#1a1305; border:none; font-weight:600;
+  font-family:'Inter'; font-size:13px; padding:9px 16px; border-radius:6px;
+  white-space:nowrap; box-shadow:0 2px 12px rgba(245,166,35,.22); transition:filter .15s;
+}
+.add-btn:hover{filter:brightness(1.1);}
+.stats-line{
+  font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--text-faint);
+  margin-bottom:16px; display:flex; gap:14px; flex-wrap:wrap;
+}
+.stats-line b{color:var(--text-dim); font-weight:600;}
+
+/* ---- List ---- */
+.list{display:flex; flex-direction:column; gap:8px;}
+.row{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-left:4px solid var(--upcoming);
+  border-radius:6px;
+  padding:13px 16px;
+  display:flex; justify-content:space-between; align-items:center; gap:12px;
+  transition:transform .15s, border-color .15s, box-shadow .15s;
+}
+.row:hover{transform:translateY(-1px); box-shadow:var(--shadow); border-color:#3a3d4a;}
+.row.urgent{border-left-color:var(--urgent);}
+.row.soon{border-left-color:var(--soon);}
+.row.upcoming{border-left-color:var(--upcoming);}
+.row.safe{border-left-color:var(--safe);}
+.row.overdue{border-left-color:var(--overdue); opacity:0.6;}
+.row.done{border-left-color:var(--overdue); opacity:0.45;}
+.row.done:hover{opacity:0.7;}
+
+.row-left{min-width:0;}
+.row-name{font-size:14.5px; font-weight:600; display:flex; align-items:center; gap:8px;}
+.row-name.strike{text-decoration:line-through; color:var(--text-dim);}
+.tag{
+  font-family:'IBM Plex Mono', monospace;
+  font-size:9.5px; letter-spacing:0.5px; text-transform:uppercase;
+  color:var(--text-faint); background:var(--surface-2);
+  padding:2px 6px; border-radius:3px; flex-shrink:0;
+}
+.row-meta{font-size:11.5px; color:var(--text-dim); margin-top:3px; display:flex; gap:10px; flex-wrap:wrap;}
+.row-meta a{display:inline-flex; align-items:center; gap:4px; color:var(--upcoming); text-decoration:none;}
+.row-meta a:hover{text-decoration:underline;}
+
+.row-right{display:flex; align-items:center; gap:14px; flex-shrink:0;}
+.days-count{
+  font-family:'IBM Plex Mono', monospace;
+  font-size:19px; font-weight:600; text-align:right; min-width:64px;
+}
+.days-label{font-size:9.5px; color:var(--text-faint); text-align:right; letter-spacing:0.5px; text-transform:uppercase;}
+.row-actions{display:flex; gap:4px;}
+.icon-btn{
+  display:inline-flex; align-items:center; justify-content:center;
+  background:none; border:none; color:var(--text-faint);
+  width:34px; height:34px; border-radius:6px; transition:all .15s;
+}
+.icon-btn:hover{color:var(--text); background:var(--surface-2);}
+.icon-btn .ic{width:16px; height:16px;}
+
+.empty-state{
+  text-align:center; padding:50px 20px; color:var(--text-dim);
+  border:1px dashed var(--border); border-radius:8px; font-size:13.5px;
+}
+.empty-state .big{font-family:'Space Grotesk', sans-serif; font-size:16px; color:var(--text); margin-bottom:6px;}
+
+/* ---- Calendar ---- */
+.cal-head{display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px;}
+.cal-nav{display:flex; align-items:center; gap:6px;}
+.cal-nav-btn{
+  display:inline-flex; align-items:center; justify-content:center;
+  background:transparent; border:1px solid var(--border); color:var(--text-dim);
+  width:34px; height:34px; border-radius:8px; transition:all .15s;
+}
+.cal-nav-btn:hover{color:var(--text); border-color:#3a3d4a; background:var(--surface-2);}
+.cal-nav-btn .ic{width:16px; height:16px;}
+.cal-month{font-family:'Space Grotesk', sans-serif; font-size:16px; font-weight:700; min-width:160px; text-align:center;}
+.cal-today-btn{
+  background:var(--surface-2); border:1px solid var(--border); color:var(--text-dim);
+  font-family:'IBM Plex Mono', monospace; font-size:11px; padding:6px 12px; border-radius:8px;
+  transition:all .15s;
+}
+.cal-today-btn:hover{color:var(--text); border-color:#3a3d4a;}
+
+.cal-dow{display:grid; grid-template-columns:repeat(7,1fr); gap:6px; margin-bottom:6px;}
+.cal-dow div{
+  font-family:'IBM Plex Mono', monospace; font-size:10px; letter-spacing:1px;
+  text-transform:uppercase; color:var(--text-faint); text-align:center;
+}
+.cal-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:6px;}
+.cal-cell{
+  background:var(--surface); border:1px solid var(--border); border-radius:8px;
+  min-height:96px; padding:7px; display:flex; flex-direction:column; gap:5px;
+  transition:border-color .15s;
+}
+.cal-cell:hover{border-color:#3a3d4a;}
+.cal-cell.out{opacity:.35; background:transparent;}
+.cal-cell.today{border-color:var(--upcoming); box-shadow:inset 0 0 0 1px var(--upcoming);}
+.cal-daynum{font-family:'IBM Plex Mono', monospace; font-size:12px; color:var(--text-dim);}
+.cal-cell.today .cal-daynum{color:var(--text); font-weight:600;}
+.cal-events{display:flex; flex-direction:column; gap:3px; overflow:hidden;}
+.cal-chip{
+  background:var(--surface-2); color:var(--text);
+  border:none; border-left:3px solid var(--soon); border-radius:4px;
+  font-family:'Inter'; font-size:10.5px; text-align:left; padding:3px 5px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  transition:filter .15s;
+}
+.cal-chip:hover{filter:brightness(1.35);}
+.cal-chip.urgent{border-left-color:var(--urgent);}
+.cal-chip.soon{border-left-color:var(--soon);}
+.cal-chip.upcoming{border-left-color:var(--upcoming);}
+.cal-chip.safe{border-left-color:var(--safe);}
+.cal-chip.overdue{border-left-color:var(--overdue); color:var(--text-dim); text-decoration:line-through;}
+.cal-more{font-size:10px; color:var(--text-faint);}
+
+/* ---- Modal ---- */
+.overlay{
+  position:fixed; inset:0; background:rgba(10,10,12,0.7);
+  display:none; align-items:center; justify-content:center; padding:20px; z-index:50;
+}
+.overlay.show{display:flex;}
+.modal{
+  background:var(--surface); border:1px solid var(--border); border-radius:10px;
+  padding:24px; width:100%; max-width:440px; max-height:88vh; overflow-y:auto;
+  box-shadow:var(--shadow);
+}
+.modal h2{font-family:'Space Grotesk'; font-size:17px; margin-bottom:16px;}
+.field{margin-bottom:13px;}
+.field label{font-size:11.5px; color:var(--text-dim); display:block; margin-bottom:5px; letter-spacing:0.3px;}
+.field input, .field select, .field textarea{
+  width:100%; background:var(--surface-2); border:1px solid var(--border);
+  color:var(--text); padding:9px 11px; border-radius:6px; font-family:'Inter'; font-size:13.5px;
+  transition:border-color .15s;
+}
+.field input:focus, .field select:focus, .field textarea:focus{outline:1px solid var(--soon); border-color:var(--soon);}
+.field textarea{resize:vertical; min-height:50px;}
+.modal-actions{display:flex; gap:8px; margin-top:18px;}
+.btn-primary{
+  flex:1; background:var(--soon); color:#1a1305; border:none; font-weight:600;
+  padding:10px; border-radius:6px; font-size:13.5px; transition:filter .15s;
+}
+.btn-primary:hover{filter:brightness(1.1);}
+.btn-secondary{
+  background:transparent; color:var(--text-dim); border:1px solid var(--border);
+  padding:10px 16px; border-radius:6px; font-size:13.5px; transition:all .15s;
+}
+.btn-secondary:hover{color:var(--text); border-color:#3a3d4a;}
+.err{color:var(--urgent); font-size:12px; margin-top:8px; display:none;}
+.hint{font-size:11.5px; color:var(--text-faint); margin-top:6px; line-height:1.5;}
+.bulk-textarea{min-height:140px; font-family:'IBM Plex Mono', monospace; font-size:12.5px;}
+.bulk-result{font-size:12px; color:var(--safe); margin-top:8px; display:none;}
+
+@media(max-width:600px){
+  .cal-grid{gap:4px;}
+  .cal-dow{gap:4px;}
+  .cal-cell{min-height:64px; padding:5px;}
+  .cal-chip{font-size:9.5px;}
+  .cal-month{min-width:0;}
+}
+@media(max-width:480px){
+  .row{flex-wrap:wrap;}
+  .row-right{width:100%; justify-content:space-between;}
+  .hero{flex-direction:column; align-items:flex-start;}
+  .hero-right{text-align:left;}
+}
+@media (prefers-reduced-motion: reduce){
+  *, *::before, *::after{transition:none !important; animation:none !important;}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="board-header">
+    <div>
+      <div class="board-title">DEADLINE<span>BOARD</span></div>
+      <div class="board-sub" id="subCount">loading…</div>
+    </div>
+    <div class="clock" id="clock"></div>
+  </div>
+
+  <div class="hero" id="hero">
+    <div class="hero-left"><div class="eyebrow">next up</div><div class="name">Loading…</div></div>
+  </div>
+
+  <div class="toolbar">
+    <div class="view-toggle" role="tablist" aria-label="View">
+      <button class="view-btn active" id="viewList" role="tab" aria-selected="true">LIST_ICON List</button>
+      <button class="view-btn" id="viewCal" role="tab" aria-selected="false">CAL_ICON Calendar</button>
+    </div>
+    <div class="toolbar-actions">
+      <select class="cat-filter" id="categoryFilter" aria-label="Filter by category">
+        <option value="all">All categories</option>
+        <option value="Competition">Competition</option>
+        <option value="Scholarship">Scholarship</option>
+        <option value="Grant">Grant</option>
+        <option value="Internship">Internship</option>
+        <option value="Conference / CFP">Conference / CFP</option>
+        <option value="Other">Other</option>
+      </select>
+      <button class="btn-ghost" id="bulkBtn">LIST_ICON Paste list</button>
+      <button class="add-btn" id="addBtn">PLUS_ICON Add program</button>
+    </div>
+  </div>
+
+  <div class="filters" id="filters">
+    <button class="filter-btn active" data-f="active">Active</button>
+    <button class="filter-btn" data-f="overdue">Overdue</button>
+    <button class="filter-btn" data-f="done">Done</button>
+  </div>
+
+  <div class="stats-line" id="statsLine"></div>
+
+  <div id="listView">
+    <div class="list" id="list"></div>
+  </div>
+
+  <div id="calView" style="display:none;">
+    <div class="cal-head">
+      <div class="cal-nav">
+        <button class="cal-nav-btn" id="calPrev" aria-label="Previous month">CHEV_L_ICON</button>
+        <span class="cal-month" id="calMonth" aria-live="polite"></span>
+        <button class="cal-nav-btn" id="calNext" aria-label="Next month">CHEV_R_ICON</button>
+      </div>
+      <button class="cal-today-btn" id="calToday">Today</button>
+    </div>
+    <div class="cal-dow" aria-hidden="true">
+      <div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+  </div>
+
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h2 id="modalTitle">Add a program</h2>
+    <div class="field">
+      <label>Program / event name *</label>
+      <input type="text" id="fName" placeholder="e.g. Global Robotics Challenge">
+    </div>
+    <div class="field">
+      <label>Deadline *</label>
+      <input type="date" id="fDate">
+    </div>
+    <div class="field">
+      <label>Category</label>
+      <select id="fCategory">
+        <option value="Competition">Competition</option>
+        <option value="Scholarship">Scholarship</option>
+        <option value="Grant">Grant</option>
+        <option value="Internship">Internship</option>
+        <option value="Conference / CFP">Conference / CFP</option>
+        <option value="Other">Other</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Link (optional)</label>
+      <input type="text" id="fLink" placeholder="https://...">
+    </div>
+    <div class="field">
+      <label>Notes (optional)</label>
+      <textarea id="fNotes" placeholder="Requirements, submission format, contact, etc."></textarea>
+    </div>
+    <div class="err" id="fErr">Name and deadline are required.</div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="cancelBtn">Cancel</button>
+      <button class="btn-primary" id="saveBtn">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="bulkOverlay">
+  <div class="modal">
+    <h2>Paste a list</h2>
+    <div class="field">
+      <label>One program per line</label>
+      <textarea id="bulkText" class="bulk-textarea" placeholder="Global Robotics Challenge, 2026-09-14, Competition
+NASA Internship, 2026-08-30
+Fulbright Scholarship, 2026-10-01, Scholarship"></textarea>
+      <div class="hint">Format: <b>Name, YYYY-MM-DD</b> — category is optional (defaults to Competition) and comes third if you add it.</div>
+    </div>
+    <div class="err" id="bulkErr">Couldn't read any valid "Name, date" lines. Check the date format (YYYY-MM-DD).</div>
+    <div class="bulk-result" id="bulkResult"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="bulkCancelBtn">Cancel</button>
+      <button class="btn-primary" id="bulkSaveBtn">Add all</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let entries = [];
+let editingId = null;
+let currentFilter = 'active';
+let currentCategory = 'all';
+let currentView = 'list';
+let calCursor = new Date();
+calCursor.setDate(1);
+
+function uid(){ return 'e' + Date.now() + Math.random().toString(36).slice(2,8); }
+
+/* ---- Icons (inline SVG) ---- */
+const IC={
+  list:'<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
+  cal:'<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  check:'<path d="M20 6 9 17l-5-5"/>',
+  undo:'<path d="M3 12a9 9 0 1 0 2.64-6.36L3 8"/><path d="M3 3v5h5"/>',
+  pencil:'<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>',
+  trash:'<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+  x:'<path d="M18 6 6 18M6 6l12 12"/>',
+  chevL:'<path d="m15 18-6-6 6-6"/>',
+  chevR:'<path d="m9 18 6-6-6-6"/>',
+  ext:'<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>'
+};
+function ic(name){
+  return `<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[name]||''}</svg>`;
+}
+function stampIcons(){
+  document.getElementById('viewList').innerHTML = ic('list') + ' List';
+  document.getElementById('viewCal').innerHTML = ic('cal') + ' Calendar';
+  document.getElementById('bulkBtn').innerHTML = ic('list') + ' Paste list';
+  document.getElementById('addBtn').innerHTML = ic('plus') + ' Add program';
+  document.getElementById('calPrev').innerHTML = ic('chevL');
+  document.getElementById('calNext').innerHTML = ic('chevR');
+}
+
+/* ---- Date helpers ---- */
+function pad(n){ return String(n).padStart(2,'0'); }
+function dateKey(d){ return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()); }
+
+function daysRemaining(dateStr){
+  const today = new Date(); today.setHours(0,0,0,0);
+  const d = new Date(dateStr + 'T00:00:00');
+  return Math.round((d - today) / 86400000);
+}
+
+function bandFor(days){
+  if(days < 0) return 'overdue';
+  if(days <= 3) return 'urgent';
+  if(days <= 7) return 'soon';
+  if(days <= 30) return 'upcoming';
+  return 'safe';
+}
+function bandColor(band){
+  return {urgent:'var(--urgent)', soon:'var(--soon)', upcoming:'var(--upcoming)', safe:'var(--safe)', overdue:'var(--overdue)'}[band];
+}
+
+function fmtDate(dateStr){
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString(undefined, {month:'short', day:'numeric', year:'numeric'});
+}
+
+/* ---- Storage (custom shim if window.storage isn't provided) ---- */
+const db = {
+  async get(key){
+    if(window.storage) return window.storage.get(key, false);
+    return { value: localStorage.getItem('deadline-board.' + key) };
+  },
+  async set(key, value){
+    if(window.storage) return window.storage.set(key, value, false);
+    localStorage.setItem('deadline-board.' + key, value);
+  }
+};
+
+async function loadEntries(){
+  try{
+    const res = await db.get('entries');
+    entries = res && res.value ? JSON.parse(res.value) : [];
+  }catch(e){
+    entries = [];
+  }
+  refresh();
+}
+
+async function saveEntries(){
+  try{
+    await db.set('entries', JSON.stringify(entries));
+  }catch(e){
+    console.error('Storage save failed', e);
+  }
+}
+
+/* ---- Views ---- */
+function setView(v){
+  currentView = v;
+  document.getElementById('viewList').classList.toggle('active', v === 'list');
+  document.getElementById('viewCal').classList.toggle('active', v === 'calendar');
+  document.getElementById('viewList').setAttribute('aria-selected', v === 'list');
+  document.getElementById('viewCal').setAttribute('aria-selected', v === 'calendar');
+  document.getElementById('listView').style.display = v === 'list' ? '' : 'none';
+  document.getElementById('calView').style.display = v === 'calendar' ? '' : 'none';
+  document.getElementById('filters').style.display = v === 'list' ? '' : 'none';
+  if(v === 'calendar') renderCalendar();
+}
+document.getElementById('viewList').addEventListener('click', ()=>setView('list'));
+document.getElementById('viewCal').addEventListener('click', ()=>setView('calendar'));
+
+/* ---- Modal ---- */
+function openModal(entry){
+  editingId = entry ? entry.id : null;
+  document.getElementById('modalTitle').textContent = entry ? 'Edit program' : 'Add a program';
+  document.getElementById('fName').value = entry ? entry.name : '';
+  document.getElementById('fDate').value = entry ? entry.deadline : '';
+  document.getElementById('fCategory').value = entry ? entry.category : 'Competition';
+  document.getElementById('fLink').value = entry ? (entry.link||'') : '';
+  document.getElementById('fNotes').value = entry ? (entry.notes||'') : '';
+  document.getElementById('fErr').style.display = 'none';
+  document.getElementById('overlay').classList.add('show');
+  document.getElementById('fName').focus();
+}
+function closeModal(){ document.getElementById('overlay').classList.remove('show'); }
+
+async function handleSave(){
+  const name = document.getElementById('fName').value.trim();
+  const date = document.getElementById('fDate').value;
+  if(!name || !date){
+    document.getElementById('fErr').style.display = 'block';
+    return;
+  }
+  const category = document.getElementById('fCategory').value;
+  const link = document.getElementById('fLink').value.trim();
+  const notes = document.getElementById('fNotes').value.trim();
+
+  if(editingId){
+    const e = entries.find(x=>x.id===editingId);
+    Object.assign(e, {name, deadline:date, category, link, notes});
+  } else {
+    entries.push({id:uid(), name, deadline:date, category, link, notes, done:false, created:Date.now()});
+  }
+  await saveEntries();
+  closeModal();
+  refresh();
+}
+
+async function toggleDone(id){
+  const e = entries.find(x=>x.id===id);
+  e.done = !e.done;
+  await saveEntries();
+  refresh();
+}
+
+async function removeEntry(id){
+  entries = entries.filter(x=>x.id!==id);
+  await saveEntries();
+  refresh();
+}
+
+/* ---- Render list ---- */
+function render(){
+  const list = document.getElementById('list');
+  list.innerHTML = '';
+
+  let filtered;
+  if(currentFilter==='done'){
+    filtered = entries.filter(e=>e.done);
+  } else if(currentFilter==='overdue'){
+    filtered = entries.filter(e=>!e.done && daysRemaining(e.deadline) < 0);
+  } else {
+    filtered = entries.filter(e=>!e.done);
+  }
+
+  if(currentCategory !== 'all'){
+    filtered = filtered.filter(e=>e.category === currentCategory);
+  }
+
+  filtered.sort((a,b)=> daysRemaining(a.deadline) - daysRemaining(b.deadline));
+
+  const activeAll = entries.filter(e=>!e.done);
+  const overdueAll = activeAll.filter(e=>daysRemaining(e.deadline)<0);
+  const dueThisWeek = activeAll.filter(e=>{const d=daysRemaining(e.deadline); return d>=0 && d<=7;});
+  const dueThisMonth = activeAll.filter(e=>{const d=daysRemaining(e.deadline); return d>=0 && d<=30;});
+
+  document.getElementById('subCount').textContent =
+    activeAll.length + ' active · ' + overdueAll.length + ' overdue';
+
+  document.getElementById('statsLine').innerHTML =
+    `<span><b>${dueThisWeek.length}</b> due this week</span>` +
+    `<span><b>${dueThisMonth.length}</b> due this month</span>` +
+    `<span><b>${entries.filter(e=>e.done).length}</b> completed</span>`;
+
+  // hero: next active, non-overdue deadline; fallback to nearest overdue
+  const activeSorted = entries.filter(e=>!e.done).sort((a,b)=>daysRemaining(a.deadline)-daysRemaining(b.deadline));
+  const heroEntry = activeSorted[0];
+  const hero = document.getElementById('hero');
+  if(heroEntry){
+    const d = daysRemaining(heroEntry.deadline);
+    const band = bandFor(d);
+    const color = bandColor(band);
+    hero.classList.remove('empty');
+    hero.style.borderLeftColor = color;
+    hero.innerHTML = `
+      <div class="hero-left">
+        <div class="eyebrow">next up</div>
+        <div class="name">${escapeHtml(heroEntry.name)}</div>
+        <div class="meta">${escapeHtml(heroEntry.category)} · due ${fmtDate(heroEntry.deadline)}</div>
+      </div>
+      <div class="hero-right">
+        <div class="count" style="color:${color}">${d<0?('+'+Math.abs(d)):d}</div>
+        <div class="unit">${d<0?'DAYS OVERDUE':(d===0?'DUE TODAY':'DAYS LEFT')}</div>
+      </div>`;
+  } else {
+    hero.classList.add('empty');
+    hero.innerHTML = `<div class="hero-left"><div class="eyebrow">next up</div><div class="name" style="font-size:14px; font-weight:500; color:var(--text-dim)">Nothing tracked yet — add your first program.</div></div>`;
+  }
+
+  if(filtered.length===0){
+    list.innerHTML = `<div class="empty-state"><div class="big">${currentFilter==='done' ? 'No completed programs yet' : currentFilter==='overdue' ? 'Nothing overdue — good shape' : 'Board is empty'}</div>${currentFilter==='active' ? 'Add every program you register for and this board tracks the rest.' : ''}</div>`;
+    return;
+  }
+
+  filtered.forEach(e=>{
+    const d = daysRemaining(e.deadline);
+    const band = e.done ? 'done' : bandFor(d);
+    const row = document.createElement('div');
+    row.className = 'row ' + band;
+    row.innerHTML = `
+      <div class="row-left">
+        <div class="row-name ${e.done?'strike':''}">${escapeHtml(e.name)} <span class="tag">${escapeHtml(e.category)}</span></div>
+        <div class="row-meta">
+          <span>${fmtDate(e.deadline)}</span>
+          ${e.link ? `<a href="${escapeAttr(e.link)}" target="_blank" rel="noopener">${ic('ext')} link</a>` : ''}
+          ${e.notes ? `<span>${escapeHtml(e.notes)}</span>` : ''}
+        </div>
+      </div>
+      <div class="row-right">
+        <div>
+          <div class="days-count" style="color:${e.done?'var(--overdue)':bandColor(band)}">${d<0?('+'+Math.abs(d)):d}</div>
+          <div class="days-label">${e.done?'DONE':(d<0?'OVERDUE':(d===0?'TODAY':'DAYS'))}</div>
+        </div>
+        <div class="row-actions">
+          <button class="icon-btn" title="${e.done?'Mark active':'Mark done'}" aria-label="${e.done?'Mark active':'Mark done'}" data-action="done" data-id="${e.id}">${e.done?ic('undo'):ic('check')}</button>
+          <button class="icon-btn" title="Edit" aria-label="Edit" data-action="edit" data-id="${e.id}">${ic('pencil')}</button>
+          <button class="icon-btn" title="Delete" aria-label="Delete" data-action="delete" data-id="${e.id}">${ic('trash')}</button>
+        </div>
+      </div>`;
+    list.appendChild(row);
+  });
+}
+
+/* ---- Render calendar ---- */
+function renderCalendar(){
+  const year = calCursor.getFullYear();
+  const month = calCursor.getMonth();
+  document.getElementById('calMonth').textContent = calCursor.toLocaleDateString(undefined, {month:'long', year:'numeric'});
+
+  const now = new Date();
+  const todayKey = dateKey(now);
+  const firstDow = new Date(year, month, 1).getDay();      // 0 = Sunday
+  const offset = (firstDow + 6) % 7;                        // Monday-first
+  const dim = new Date(year, month + 1, 0).getDate();
+
+  const active = entries.filter(e=>!e.done && (currentCategory==='all' || e.category===currentCategory));
+  const byDate = {};
+  active.forEach(e=>{ (byDate[e.deadline] = byDate[e.deadline] || []).push(e); });
+  Object.keys(byDate).forEach(k=> byDate[k].sort((a,b)=> a.name.localeCompare(b.name)));
+
+  let html = '';
+  for(let i=0; i<42; i++){
+    const dayNum = i - offset + 1;
+    const inMonth = dayNum >= 1 && dayNum <= dim;
+    const d = new Date(year, month, dayNum);
+    const key = dateKey(d);
+    const isToday = key === todayKey;
+    const evs = inMonth ? (byDate[key] || []) : [];
+
+    let chips = '';
+    const MAX = 3;
+    evs.slice(0, MAX).forEach(e=>{
+      const band = bandFor(daysRemaining(e.deadline));
+      chips += `<button class="cal-chip ${band}" data-id="${e.id}" title="${escapeAttr(e.name)}" aria-label="${escapeAttr(e.name)}">${escapeHtml(e.name)}</button>`;
+    });
+    if(evs.length > MAX) chips += `<span class="cal-more">+${evs.length-MAX} more</span>`;
+
+    html += `<div class="cal-cell${inMonth?'':' out'}${isToday?' today':''}" data-date="${key}">
+      <div class="cal-daynum">${dayNum}</div>
+      <div class="cal-events">${chips}</div>
+    </div>`;
+  }
+  document.getElementById('calGrid').innerHTML = html;
+}
+
+document.getElementById('calGrid').addEventListener('click', ev=>{
+  const chip = ev.target.closest('.cal-chip');
+  if(!chip) return;
+  const e = entries.find(x=>x.id===chip.dataset.id);
+  if(e) openModal(e);
+});
+
+document.getElementById('calPrev').addEventListener('click', ()=> { calCursor.setMonth(calCursor.getMonth()-1); renderCalendar(); });
+document.getElementById('calNext').addEventListener('click', ()=> { calCursor.setMonth(calCursor.getMonth()+1); renderCalendar(); });
+document.getElementById('calToday').addEventListener('click', ()=> { calCursor = new Date(); calCursor.setDate(1); renderCalendar(); });
+
+/* ---- Escape helpers ---- */
+function escapeHtml(s){ const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
+function escapeAttr(s){ return (s||'').replace(/"/g,'&quot;'); }
+
+/* ---- List row actions ---- */
+document.getElementById('list').addEventListener('click', (ev)=>{
+  const btn = ev.target.closest('.icon-btn');
+  if(!btn) return;
+  const id = btn.dataset.id;
+  const action = btn.dataset.action;
+  if(action==='delete'){ if(confirm('Remove this program from the board?')) removeEntry(id); }
+  if(action==='done'){ toggleDone(id); }
+  if(action==='edit'){ openModal(entries.find(x=>x.id===id)); }
+});
+
+document.getElementById('filters').addEventListener('click', (ev)=>{
+  const btn = ev.target.closest('.filter-btn');
+  if(!btn) return;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  currentFilter = btn.dataset.f;
+  render();
+});
+
+document.getElementById('addBtn').addEventListener('click', ()=>openModal(null));
+document.getElementById('cancelBtn').addEventListener('click', closeModal);
+document.getElementById('saveBtn').addEventListener('click', handleSave);
+document.getElementById('overlay').addEventListener('click', (ev)=>{ if(ev.target.id==='overlay') closeModal(); });
+
+document.getElementById('categoryFilter').addEventListener('change', (ev)=>{
+  currentCategory = ev.target.value;
+  refresh();
+});
+
+/* ---- Bulk paste ---- */
+function openBulk(){
+  document.getElementById('bulkText').value = '';
+  document.getElementById('bulkErr').style.display = 'none';
+  document.getElementById('bulkResult').style.display = 'none';
+  document.getElementById('bulkOverlay').classList.add('show');
+  document.getElementById('bulkText').focus();
+}
+function closeBulk(){ document.getElementById('bulkOverlay').classList.remove('show'); }
+
+const VALID_CATEGORIES = ['Competition','Scholarship','Grant','Internship','Conference / CFP','Other'];
+
+async function handleBulkSave(){
+  const raw = document.getElementById('bulkText').value;
+  const lines = raw.split('\n').map(l=>l.trim()).filter(Boolean);
+  const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+  let added = 0;
+  lines.forEach(line=>{
+    const parts = line.split(',').map(p=>p.trim());
+    if(parts.length < 2) return;
+    const [name, date, cat] = parts;
+    if(!name || !dateRe.test(date)) return;
+    const category = VALID_CATEGORIES.includes(cat) ? cat : 'Competition';
+    entries.push({id:uid(), name, deadline:date, category, link:'', notes:'', done:false, created:Date.now()});
+    added++;
+  });
+  if(added === 0){
+    document.getElementById('bulkErr').style.display = 'block';
+    document.getElementById('bulkResult').style.display = 'none';
+    return;
+  }
+  await saveEntries();
+  document.getElementById('bulkErr').style.display = 'none';
+  const resultEl = document.getElementById('bulkResult');
+  resultEl.textContent = `Added ${added} program${added===1?'':'s'}.`;
+  resultEl.style.display = 'block';
+  refresh();
+  setTimeout(closeBulk, 900);
+}
+
+document.getElementById('bulkBtn').addEventListener('click', openBulk);
+document.getElementById('bulkCancelBtn').addEventListener('click', closeBulk);
+document.getElementById('bulkSaveBtn').addEventListener('click', handleBulkSave);
+document.getElementById('bulkOverlay').addEventListener('click', (ev)=>{ if(ev.target.id==='bulkOverlay') closeBulk(); });
+
+/* ---- Clock ---- */
+function tickClock(){
+  const now = new Date();
+  document.getElementById('clock').textContent = now.toLocaleDateString(undefined,{weekday:'short', month:'short', day:'numeric'}) + '  ' + now.toLocaleTimeString(undefined,{hour:'2-digit', minute:'2-digit'});
+}
+tickClock();
+setInterval(tickClock, 30000);
+
+/* ---- Init ---- */
+function refresh(){
+  render();
+  if(currentView === 'calendar') renderCalendar();
+}
+stampIcons();
+loadEntries();
+</script>
+</body>
+</html>
