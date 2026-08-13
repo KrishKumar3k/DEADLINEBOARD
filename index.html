@@ -583,19 +583,6 @@ const db = {
   }
 };
 
-const SEED_ENTRIES = [
-  {
-    id: 'eseed1',
-    name: 'Unstop Quizverse 2026',
-    deadline: '2026-08-14',
-    category: 'Competition',
-    link: 'https://unstop.com/quiz/crp-unstop-quizverse-2026-unstop-1710459',
-    notes: 'Free daily online quiz series — a new format every day (brand logos, taglines, app icons, observation, logic). Prizes: boAt speaker + Rs 5,000 Amazon voucher (winner), boAt earbuds + Rs 3,000 (1st runner-up), boAt smartwatch + Rs 2,000 (2nd runner-up), Rs 1,000 vouchers for ranks 4-10, participation certificate for everyone. 73k+ registered.',
-    done: false,
-    created: Date.now()
-  }
-];
-
 async function loadEntries(){
   try{
     const res = await db.get('entries');
@@ -603,11 +590,9 @@ async function loadEntries(){
   }catch(e){
     entries = [];
   }
-  if(!window.storage){
-    SEED_ENTRIES.forEach(seed=>{
-      const exists = entries.some(e=>e.link === seed.link);
-      if(!exists) entries.push({...seed});
-    });
+  const pruned = entries.filter(e => e.id !== 'eseed1');
+  if(pruned.length !== entries.length){
+    entries = pruned;
     await saveEntries();
   }
   refresh();
