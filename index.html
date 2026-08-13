@@ -269,6 +269,44 @@ body{
 .bulk-textarea{min-height:140px; font-family:'IBM Plex Mono', monospace; font-size:12.5px;}
 .bulk-result{font-size:12px; color:var(--safe); margin-top:8px; display:none;}
 
+/* ---- URL scanner ---- */
+.scan-url-row{display:flex; gap:8px; align-items:center;}
+.scan-url-row input{flex:1;}
+.scan-btn{
+  background:var(--upcoming); color:#fff; border:none; font-weight:600;
+  font-family:'Inter'; font-size:12.5px; padding:9px 14px; border-radius:6px;
+  white-space:nowrap; transition:filter .15s;
+}
+.scan-btn:disabled{opacity:.5; cursor:not-allowed;}
+.scan-btn:not(:disabled):hover{filter:brightness(1.12);}
+.scan-status{font-size:12px; margin-top:10px; min-height:18px; display:flex; align-items:center; gap:8px; color:var(--text-dim);}
+.spinner{
+  width:14px; height:14px; border:2px solid var(--border);
+  border-top-color:var(--upcoming); border-radius:50%;
+  animation:spin .7s linear infinite; flex-shrink:0;
+}
+@keyframes spin{to{transform:rotate(360deg);}}
+.scan-preview{
+  background:var(--surface-2); border:1px solid var(--border); border-radius:8px;
+  padding:14px; margin-top:12px; display:none; flex-direction:column; gap:10px;
+}
+.scan-preview.show{display:flex;}
+.preview-row{display:flex; flex-direction:column; gap:4px;}
+.preview-label{font-size:10.5px; color:var(--text-faint); text-transform:uppercase; letter-spacing:0.5px;}
+.preview-val{font-size:13.5px; color:var(--text);}
+.preview-val.mono{font-family:'IBM Plex Mono', monospace; font-size:12px; color:var(--soon);}
+.preview-notes{font-size:12px; color:var(--text-dim); line-height:1.55; max-height:80px; overflow-y:auto;}
+.scan-multi{display:flex; flex-direction:column; gap:6px; max-height:220px; overflow-y:auto;}
+.scan-multi-item{
+  display:flex; align-items:center; gap:10px;
+  background:var(--surface); border:1px solid var(--border); border-radius:6px;
+  padding:9px 12px;
+}
+.scan-multi-item input[type=checkbox]{accent-color:var(--upcoming); width:15px; height:15px; flex-shrink:0;}
+.scan-item-info{flex:1; min-width:0;}
+.scan-item-name{font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.scan-item-meta{font-size:11px; color:var(--text-dim); margin-top:2px;}
+
 @media(max-width:600px){
   .cal-grid{gap:4px;}
   .cal-dow{gap:4px;}
@@ -317,6 +355,7 @@ body{
         <option value="Conference / CFP">Conference / CFP</option>
         <option value="Other">Other</option>
       </select>
+      <button class="btn-ghost" id="scanBtn">SCAN_ICON Scan URL</button>
       <button class="btn-ghost" id="bulkBtn">LIST_ICON Paste list</button>
       <button class="add-btn" id="addBtn">PLUS_ICON Add program</button>
     </div>
@@ -408,6 +447,65 @@ Fulbright Scholarship, 2026-10-01, Scholarship"></textarea>
   </div>
 </div>
 
+<div class="overlay" id="scanOverlay">
+  <div class="modal" style="max-width:500px;">
+    <h2>Scan a program page</h2>
+    <p style="font-size:12.5px; color:var(--text-dim); margin-bottom:14px; line-height:1.6;">Paste any competition, scholarship, or program URL. The AI will read the page and pull out the name, deadline, and key dates automatically.</p>
+
+    <div class="field">
+      <label>Program URL</label>
+      <div class="scan-url-row">
+        <input type="text" id="scanUrl" placeholder="https://www.somecompetition.org/apply">
+        <button class="scan-btn" id="scanGoBtn">Scan</button>
+      </div>
+    </div>
+
+    <div class="field" style="margin-top:14px;">
+      <label>Gemini API key <span style="color:var(--text-faint); font-weight:400;">(optional)</span></label>
+      <div class="scan-url-row">
+        <input type="password" id="scanApiKey" placeholder="AIza... enables AI extraction" autocomplete="off">
+        <button class="btn-secondary" id="saveKeyBtn">Save key</button>
+      </div>
+      <div class="hint">Get a free key from <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" style="color:var(--upcoming);">aistudio.google.com/apikey</a>. Pairing it with the key powers AI extraction on complex or login-walled pages. Without a key, the built-in no-key scanner reads pages that state the deadline in plain text.</div>
+    </div>
+
+    <div class="scan-status" id="scanStatus"></div>
+
+    <!-- Single result preview -->
+    <div class="scan-preview" id="scanPreview">
+      <div class="preview-row">
+        <div class="preview-label">Program name</div>
+        <div class="preview-val" id="pvName"></div>
+      </div>
+      <div class="preview-row">
+        <div class="preview-label">Deadline</div>
+        <div class="preview-val mono" id="pvDate"></div>
+      </div>
+      <div class="preview-row">
+        <div class="preview-label">Category</div>
+        <div class="preview-val" id="pvCat"></div>
+      </div>
+      <div class="preview-row" id="pvNotesRow">
+        <div class="preview-label">Key notes extracted</div>
+        <div class="preview-notes" id="pvNotes"></div>
+      </div>
+    </div>
+
+    <!-- Multiple deadlines found -->
+    <div id="scanMultiWrap" style="display:none;">
+      <p style="font-size:12px; color:var(--text-dim); margin-bottom:8px;">Multiple deadlines found — select which to add:</p>
+      <div class="scan-multi" id="scanMultiList"></div>
+    </div>
+
+    <div class="err" id="scanErr"></div>
+
+    <div class="modal-actions" style="margin-top:16px;">
+      <button class="btn-secondary" id="scanCancelBtn">Cancel</button>
+      <button class="btn-primary" id="scanAddBtn" style="display:none;">Add to board</button>
+    </div>
+  </div>
+</div>
+
 <script>
 let entries = [];
 let editingId = null;
@@ -431,7 +529,8 @@ const IC={
   x:'<path d="M18 6 6 18M6 6l12 12"/>',
   chevL:'<path d="m15 18-6-6 6-6"/>',
   chevR:'<path d="m9 18 6-6-6-6"/>',
-  ext:'<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>'
+  ext:'<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
+  scan:'<circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/><path d="M11 8v6M8 11h6"/>'
 };
 function ic(name){
   return `<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[name]||''}</svg>`;
@@ -439,6 +538,7 @@ function ic(name){
 function stampIcons(){
   document.getElementById('viewList').innerHTML = ic('list') + ' List';
   document.getElementById('viewCal').innerHTML = ic('cal') + ' Calendar';
+  document.getElementById('scanBtn').innerHTML = ic('scan') + ' Scan URL';
   document.getElementById('bulkBtn').innerHTML = ic('list') + ' Paste list';
   document.getElementById('addBtn').innerHTML = ic('plus') + ' Add program';
   document.getElementById('calPrev').innerHTML = ic('chevL');
@@ -483,12 +583,32 @@ const db = {
   }
 };
 
+const SEED_ENTRIES = [
+  {
+    id: 'eseed1',
+    name: 'Unstop Quizverse 2026',
+    deadline: '2026-08-14',
+    category: 'Competition',
+    link: 'https://unstop.com/quiz/crp-unstop-quizverse-2026-unstop-1710459',
+    notes: 'Free daily online quiz series — a new format every day (brand logos, taglines, app icons, observation, logic). Prizes: boAt speaker + Rs 5,000 Amazon voucher (winner), boAt earbuds + Rs 3,000 (1st runner-up), boAt smartwatch + Rs 2,000 (2nd runner-up), Rs 1,000 vouchers for ranks 4-10, participation certificate for everyone. 73k+ registered.',
+    done: false,
+    created: Date.now()
+  }
+];
+
 async function loadEntries(){
   try{
     const res = await db.get('entries');
     entries = res && res.value ? JSON.parse(res.value) : [];
   }catch(e){
     entries = [];
+  }
+  if(!window.storage){
+    SEED_ENTRIES.forEach(seed=>{
+      const exists = entries.some(e=>e.link === seed.link);
+      if(!exists) entries.push({...seed});
+    });
+    await saveEntries();
   }
   refresh();
 }
@@ -789,6 +909,327 @@ document.getElementById('bulkBtn').addEventListener('click', openBulk);
 document.getElementById('bulkCancelBtn').addEventListener('click', closeBulk);
 document.getElementById('bulkSaveBtn').addEventListener('click', handleBulkSave);
 document.getElementById('bulkOverlay').addEventListener('click', (ev)=>{ if(ev.target.id==='bulkOverlay') closeBulk(); });
+
+/* ---- URL Scanner ---- */
+const GEMINI_MODEL = 'gemini-2.5-flash';
+const KEY_PREFIX = 'deadline-board.geminiKey';
+let scanResults = [];
+
+function getGeminiKey(){ return localStorage.getItem(KEY_PREFIX) || ''; }
+function setGeminiKey(k){ if(k) localStorage.setItem(KEY_PREFIX, k); else localStorage.removeItem(KEY_PREFIX); }
+
+function scanMode(){
+  return getGeminiKey() ? 'AI scan (Gemini)' : 'no-key scan';
+}
+
+function openScanner(){
+  document.getElementById('scanUrl').value = '';
+  document.getElementById('scanApiKey').value = getGeminiKey();
+  document.getElementById('scanStatus').innerHTML = '';
+  scanResults = [];
+  resetScanUI();
+  document.getElementById('scanOverlay').classList.add('show');
+  document.getElementById('scanUrl').focus();
+}
+function closeScanner(){ document.getElementById('scanOverlay').classList.remove('show'); }
+
+function resetScanUI(){
+  document.getElementById('scanStatus').style.color = '';
+  document.getElementById('scanPreview').classList.remove('show');
+  document.getElementById('scanMultiWrap').style.display = 'none';
+  document.getElementById('scanErr').style.display = 'none';
+  document.getElementById('scanErr').textContent = '';
+  document.getElementById('scanAddBtn').style.display = 'none';
+}
+
+function setScanStatus(html){
+  const el = document.getElementById('scanStatus');
+  el.innerHTML = html;
+  el.style.color = '';
+}
+function showScanErr(msg){
+  const el = document.getElementById('scanErr');
+  el.textContent = msg;
+  el.style.display = msg ? 'block' : 'none';
+}
+
+document.getElementById('saveKeyBtn').addEventListener('click', ()=>{
+  setGeminiKey(document.getElementById('scanApiKey').value.trim());
+  const s = document.getElementById('scanStatus');
+  if(getGeminiKey()){
+    s.textContent = 'Gemini API key saved — AI extraction enabled.';
+    s.style.color = 'var(--safe)';
+  } else {
+    s.textContent = 'Key removed — switching to the no-key scanner.';
+  }
+  setTimeout(()=>{ s.textContent = ''; }, 3000);
+});
+
+function showExtract(item){
+  document.getElementById('pvName').textContent = item.name || '—';
+  document.getElementById('pvDate').textContent = item.deadline ? fmtDate(item.deadline) : 'Not found';
+  document.getElementById('pvCat').textContent = item.category || 'Other';
+  const notesEl = document.getElementById('pvNotes');
+  notesEl.textContent = item.notes || '—';
+  document.getElementById('pvNotesRow').style.display = item.notes ? '' : 'none';
+  document.getElementById('scanMultiWrap').style.display = 'none';
+  document.getElementById('scanPreview').classList.add('show');
+  scanResults = [item];
+  document.getElementById('scanAddBtn').style.display = '';
+}
+
+function showExtractMulti(items){
+  document.getElementById('scanPreview').classList.remove('show');
+  document.getElementById('scanMultiWrap').style.display = 'block';
+  const listEl = document.getElementById('scanMultiList');
+  listEl.innerHTML = '';
+  items.forEach((item, i) => {
+    const div = document.createElement('div');
+    div.className = 'scan-multi-item';
+    div.innerHTML = `
+      <input type="checkbox" id="mi${i}" checked data-idx="${i}">
+      <label for="mi${i}" class="scan-item-info" style="cursor:pointer;">
+        <div class="scan-item-name">${escapeHtml(item.name||'Unnamed')}</div>
+        <div class="scan-item-meta">${item.deadline ? fmtDate(item.deadline) : 'No deadline found'} · ${escapeHtml(item.category||'Other')}</div>
+      </label>`;
+    listEl.appendChild(div);
+  });
+  scanResults = items;
+  document.getElementById('scanAddBtn').style.display = '';
+}
+
+/* ---- AI path (requires a Gemini API key) ---- */
+async function runScanAI(url){
+  const today = new Date().toISOString().slice(0,10);
+  const prompt = `You are a deadline extraction agent. The user wants to track this program page: ${url}
+
+Today's date is ${today}. Use the Google Search tool to fetch/search for this URL and extract deadline information.
+
+After searching, respond ONLY with a valid JSON object (no markdown, no explanation) in this exact format:
+{
+  "name": "Full program name",
+  "deadline": "YYYY-MM-DD",
+  "category": "Competition|Scholarship|Grant|Internship|Conference / CFP|Other",
+  "notes": "2-3 sentence summary of key requirements or important dates",
+  "link": "${url}",
+  "multiple": false
+}
+
+If the page has MULTIPLE distinct deadlines (e.g. early deadline, final deadline, different tracks), return:
+{
+  "multiple": true,
+  "items": [
+    {"name": "Program Name – Early Deadline", "deadline": "YYYY-MM-DD", "category": "...", "notes": "...", "link": "${url}"},
+    {"name": "Program Name – Final Deadline", "deadline": "YYYY-MM-DD", "category": "...", "notes": "...", "link": "${url}"}
+  ]
+}
+
+Rules:
+- deadline must be YYYY-MM-DD. If only month/year known, use last day of that month.
+- If no clear deadline exists, use null for deadline.
+- category must be exactly one of: Competition, Scholarship, Grant, Internship, Conference / CFP, Other
+- Keep notes concise and factual.
+- Return ONLY the JSON, nothing else.`;
+
+  setScanStatus('<span class="spinner"></span> Asking Gemini to read the page…');
+  const res = await fetch(
+    'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL + ':generateContent?key=' + encodeURIComponent(getGeminiKey()),
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        systemInstruction: { parts: [{ text: 'You are a strict deadline-extraction agent. Respond with ONLY a valid JSON object. No markdown, no code fences, no extra prose.' }] },
+        tools: [{ google_search: {} }],
+        generationConfig: { temperature: 0.2 }
+      })
+    }
+  );
+
+  if(!res.ok){
+    const err = await res.json().catch(()=>({}));
+    const msg = err && err.error && err.error.message ? err.error.message : ('API error ' + res.status);
+    if(/api key/i.test(msg)) throw new Error('Gemini API key not valid — check the key you saved.');
+    throw new Error(msg);
+  }
+
+  const data = await res.json();
+  const text = ((data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) || [])
+    .filter(p => p.text)
+    .map(p => p.text)
+    .join('');
+
+  const clean = text.replace(/```json|```/g,'').trim();
+  let parsed;
+  try { parsed = JSON.parse(clean); }
+  catch(e){ throw new Error('AI returned unreadable output. The page may hide its deadline — add it manually.'); }
+
+  if(parsed.multiple && Array.isArray(parsed.items) && parsed.items.length > 0){
+    showExtractMulti(parsed.items);
+  } else {
+    if(!parsed.name) throw new Error('AI could not identify the program name on this page.');
+    showExtract(parsed);
+  }
+}
+
+/* ---- No-key scanner (any browser; works on plain-text pages) ---- */
+function guessCategory(text){
+  const t = text.toLowerCase();
+  if(/\b(internship|intern)\b/.test(t)) return 'Internship';
+  if(/\bscholarship\b/.test(t)) return 'Scholarship';
+  if(/\b(grant|funding|fellowship)\b/.test(t)) return 'Grant';
+  if(/\b(conference|call for papers|call for submissions|\bcfp\b|symposium)\b/.test(t)) return 'Conference / CFP';
+  return 'Competition';
+}
+
+function parseFlexDate(raw){
+  const s = raw.replace(/(\d)(st|nd|rd|th)/gi,'$1').replace(/[.,]\s*$/,'').trim();
+  const d = new Date(s);
+  if(!isNaN(d)) return d;
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if(m) return new Date(+m[1], +m[2]-1, +m[3]);
+  m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+  if(m){
+    let y = +m[3]; if(y < 100) y += (y > 50 ? 1900 : 2000);
+    const a = +m[1], b = +m[2];
+    return a > 12 ? new Date(y, b-1, a) : new Date(y, a-1, b);
+  }
+  return null;
+}
+
+function extractDeadline(text){
+  const M = 'Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t|tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?';
+  const re = new RegExp(
+    '\\b\\d{4}-\\d{1,2}-\\d{1,2}\\b' +
+    '|\\b\\d{1,2}(?:st|nd|rd|th)?[\\s\\/.-]+' + M + '[\\s\\/.,-]*\\d{0,4}' +
+    '|\\b' + M + '[.,]?\\s+\\d{1,2}(?:st|nd|rd|th)?(?:[.,]?\\s+\\d{2,4})?' +
+    '|\\b\\d{1,2}[\\/.]\\d{1,2}[\\/.]\\d{2,4}\\b',
+    'gi');
+  const KWS = ['deadline','last date','last day','register by','registration','closes','closing','ends','due','apply by','before ','submission'];
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const cands = [];
+  let m;
+  while((m = re.exec(text))){
+    const d = parseFlexDate(m[0]);
+    if(!d || d.getFullYear() < 2000 || d.getFullYear() > 2100) continue;
+    const ctx = (text.slice(Math.max(0, m.index-70), m.index + m[0].length + 70)).toLowerCase();
+    const kw = KWS.some(k => ctx.includes(k));
+    if(+d >= +today || kw) cands.push({d, kw});
+  }
+  if(!cands.length) return null;
+  const fut = cands.filter(c => c.d >= today).sort((a,b)=> a.d - b.d);
+  const kwFut = fut.filter(c => c.kw);
+  let pick;
+  if(kwFut.length) pick = kwFut[0];
+  else if(fut.length) pick = fut[0];
+  else pick = cands.sort((a,b)=> b.d - a.d)[0];
+  return pick.d;
+}
+
+async function extractNoKey(url){
+  setScanStatus('<span class="spinner"></span> Fetching page (no-key scanner)…');
+  let res = null;
+  try{ res = await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(url), { mode:'cors' }); }catch(e){}
+  if(!res || !res.ok) res = await fetch(url, { mode:'cors' }).catch(()=>null);
+  if(!res || !res.ok) throw new Error('Could not fetch the page (status ' + (res ? res.status : 'network') + '). It may block automated access — try an API key or add it manually.');
+  const html = await res.text();
+  if(!html || html.trim().length < 40) throw new Error('No readable content returned (JavaScript-only page). Try adding an API key for AI extraction.');
+
+  const text = html
+    .replace(/<script[\s\S]*?<\/script>/gi,' ')
+    .replace(/<style[\s\S]*?<\/style>/gi,' ')
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi,' ')
+    .replace(/<[^>]+>/g,' ')
+    .replace(/&nbsp;/gi,' ').replace(/&amp;/gi,'&')
+    .replace(/&#8217;|&#39;|&rsquo;/g,"'").replace(/&#8211;|&ndash;/g,'-')
+    .replace(/\s+/g,' ').trim();
+
+  let name = '';
+  const og = html.match(/property=["']og:title["']\s+content=["']([^"']*)["']/i);
+  if(og) name = og[1].trim();
+  const h1 = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+  if(!name && h1) name = h1[1].replace(/<[^>]+>/g,'').replace(/\s+/g,' ').trim();
+  const title = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  if(!name && title && title[1]){ name = title[1].split(/\s*[|\-–—]\s*/)[0].trim(); }
+  if(!name || name.length < 3){ const slug = url.split('/').filter(Boolean).pop(); name = (slug || 'Untitled').replace(/[-_+]/g,' '); }
+
+  const deadline = extractDeadline(text);
+  if(!deadline) throw new Error('No clear date in the plain text. This page hides its deadline behind scripts — add an API key or add it manually.');
+
+  const dlIdx = text.toLowerCase().search(/deadline|last date|last day|register by|registration/);
+  let notes = '';
+  if(dlIdx >= 0) notes = text.slice(dlIdx, dlIdx + 160).replace(/\s+/g,' ').trim();
+  if(!notes) notes = guessCategory(text) + ' · auto-extracted from the page.';
+
+  return { name, deadline: dateKey(deadline), category: guessCategory(text), notes, link: url };
+}
+
+async function runScan(){
+  const rawUrl = document.getElementById('scanUrl').value.trim();
+  if(!rawUrl){ showScanErr('Please paste a URL first.'); return; }
+  let url = rawUrl;
+  if(!/^https?:\/\//i.test(url)) url = 'https://' + url;
+
+  showScanErr('');
+  document.getElementById('scanPreview').classList.remove('show');
+  document.getElementById('scanMultiWrap').style.display = 'none';
+  document.getElementById('scanAddBtn').style.display = 'none';
+  document.getElementById('scanGoBtn').disabled = true;
+  scanResults = [];
+
+  setScanStatus('<span class="spinner"></span> ' + scanMode() + '…');
+  try {
+    if(getGeminiKey()) await runScanAI(url);
+    else await extractNoKey(url);
+    setScanStatus('');
+  } catch(err){
+    setScanStatus('');
+    showScanErr('⚠ ' + (err.message || 'Something went wrong. Please try again.'));
+  } finally {
+    document.getElementById('scanGoBtn').disabled = false;
+  }
+}
+
+async function addScannedEntries(){
+  let toAdd = scanResults;
+
+  // If multiple, only add checked ones
+  const checkboxes = document.querySelectorAll('#scanMultiList input[type=checkbox]');
+  if(checkboxes.length > 0){
+    toAdd = [];
+    checkboxes.forEach(cb => {
+      if(cb.checked) toAdd.push(scanResults[parseInt(cb.dataset.idx)]);
+    });
+  }
+
+  if(toAdd.length === 0){ showScanErr('Select at least one deadline to add.'); return; }
+
+  toAdd.forEach(item => {
+    if(!item.name) return;
+    entries.push({
+      id: uid(),
+      name: item.name,
+      deadline: item.deadline || '',
+      category: item.category || 'Other',
+      link: item.link || '',
+      notes: item.notes || '',
+      done: false,
+      created: Date.now()
+    });
+  });
+
+  await saveEntries();
+  closeScanner();
+  refresh();
+}
+
+document.getElementById('scanBtn').addEventListener('click', openScanner);
+document.getElementById('scanCancelBtn').addEventListener('click', closeScanner);
+document.getElementById('scanOverlay').addEventListener('click', ev => { if(ev.target.id==='scanOverlay') closeScanner(); });
+document.getElementById('scanGoBtn').addEventListener('click', runScan);
+document.getElementById('scanAddBtn').addEventListener('click', addScannedEntries);
+document.getElementById('scanUrl').addEventListener('keydown', ev => { if(ev.key==='Enter') runScan(); });
 
 /* ---- Clock ---- */
 function tickClock(){
